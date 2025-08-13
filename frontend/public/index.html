@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SafeTour - Teste do MVP</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        section {
+            margin-bottom: 30px;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        button {
+            padding: 10px 15px;
+            background-color: #007BFF;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        #map {
+            height: 400px;
+            width: 100%;
+            margin-top: 10px;
+            border: 1px solid #ccc;
+        }
+        .emergency {
+            background-color: #FF4444;
+        }
+        .emergency:hover {
+            background-color: #CC0000;
+        }
+    </style>
+</head>
+<body>
+    <h1>SafeTour - Teste do MVP</h1>
+    
+    <!-- Seção de Cadastro -->
+    <section id="cadastro">
+        <h2>Cadastro de Usuário</h2>
+        <form id="cadastroForm">
+            <div>
+                <label>Nome:</label>
+                <input type="text" id="nome" required>
+            </div>
+            <div>
+                <label>Email:</label>
+                <input type="email" id="email" required>
+            </div>
+            <div>
+                <label>Senha:</label>
+                <input type="password" id="senha" required>
+            </div>
+            <div>
+                <label>Tipo:</label>
+                <select id="tipo" required>
+                    <option value="turista">Turista</option>
+                    <option value="guia">Guia</option>
+                    <option value="agencia">Agência</option>
+                </select>
+            </div>
+            <button type="submit">Cadastrar</button>
+        </form>
+        <div id="cadastroResult"></div>
+    </section>
+
+    <!-- Seção do Botão de Emergência -->
+    <section id="emergencia">
+        <h2>Botão de Emergência</h2>
+        <p>Simule sua localização (lat/lng):</p>
+        <div>
+            <label>Latitude:</label>
+            <input type="number" id="lat" value="-15.5" step="0.0001">
+        </div>
+        <div>
+            <label>Longitude:</label>
+            <input type="number" id="lng" value="-44.3" step="0.0001">
+        </div>
+        <button id="btnEmergencia" class="emergency">🔴 Acionar Emergência</button>
+        <div id="emergenciaResult"></div>
+    </section>
+
+    <!-- Seção do Mapa Colaborativo -->
+    <section id="mapa">
+        <h2>Mapa Colaborativo</h2>
+        <button id="btnCarregarAlertas">Carregar Alertas no Mapa</button>
+        <div id="map"></div>
+    </section>
+
+    <!-- Scripts -->
+    <script>
+        // URL base da API (ajuste conforme necessário)
+        const API_BASE_URL = 'http://localhost:3000/api';
+
+        // Elementos do DOM
+        const cadastroForm = document.getElementById('cadastroForm');
+        const btnEmergencia = document.getElementById('btnEmergencia');
+        const btnCarregarAlertas = document.getElementById('btnCarregarAlertas');
+        const cadastroResult = document.getElementById('cadastroResult');
+        const emergenciaResult = document.getElementById('emergenciaResult');
+        const mapDiv = document.getElementById('map');
+
+        // 1. Cadastro de Usuário
+        cadastroForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const user = {
+                nome: document.getElementById('nome').value,
+                email: document.getElementById('email').value,
+                senha: document.getElementById('senha').value,
+                tipo: document.getElementById('tipo').value
+            };
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/auth/cadastro`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(user)
+                });
+                const data = await response.json();
+                cadastroResult.innerHTML = `<p>Sucesso! Usuário cadastrado com ID: ${data.id || 'N/A'}</p>`;
+            } catch (err) {
+                cadastroResult.innerHTML = `<p style="color: red;">Erro: ${err.message}</p>`;
+            }
+        });
+
+        // 2. Botão de Emergência
+        btnEmergencia.addEventListener('click', async () => {
+            const localizacao = {
+                lat: parseFloat(document.getElementById('lat').value),
+                lng: parseFloat(document.getElementById('lng').value)
+            };
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/alerta/emergencia`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ usuarioId: '1', localizacao })
+                });
+                const data = await response.json();
+                emergenciaResult.innerHTML = `<p>Alerta enviado! ID: ${data.alertaId}</p>`;
+            } catch (err) {
+                emergenciaResult.innerHTML = `<p style="color: red;">Erro: ${err.message}</p>`;
+            }
+        });
+
+        // 3. Mapa Colaborativo (Google Maps API)
+        let map;
+        let markers = [];
+
+        // Função para carregar o mapa
+        function initMap() {
+            map = new google.maps.Map(mapDiv, {
+                center: { lat: -15.5, lng: -44.3 }, // Coordenadas de Januária-MG
+                zoom: 12
+            });
+        }
+
+        // Carregar alertas no mapa
+        btnCarregarAlertas.addEventListener('click', async () => {
+            try {
+                const response = await fetch(`${API_BASE_URL}/alerta/alertas`);
+                const alertas = await response.json();
+
+                // Limpar marcadores anteriores
+                markers.forEach(marker => marker.setMap(null));
+                markers = [];
+
+                // Adicionar novos marcadores
+                if (alertas) {
+                    Object.values(alertas).forEach(alerta => {
+                        const marker = new google.maps.Marker({
+                            position: alerta.localizacao,
+                            map: map,
+                            title: `Alerta de usuário ${alerta.usuarioId}`,
+                            icon: {
+                                url: "http://maps.google.com/mapfiles/ms/icons/red-dot.png"
+                            }
+                        });
+                        markers.push(marker);
+                    });
+                }
+            } catch (err) {
+                console.error("Erro ao carregar alertas:", err);
+            }
+        });
+
+        // Carrega a API do Google Maps dinamicamente
+        function loadGoogleMaps() {
+            const script = document.createElement('script');
+            script.src = `https://maps.googleapis.com/maps/api/js?key=SUA_CHAVE_GOOGLE_MAPS&callback=initMap`;
+            script.defer = true;
+            script.async = true;
+            document.head.appendChild(script);
+        }
+
+        // Inicializa o mapa quando a página carrega
+        window.initMap = initMap;
+        loadGoogleMaps();
+    </script>
+</body>
+</html>

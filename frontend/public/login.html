@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SafeTour - Login</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="icon" type="image/x-icon" href="safetour.png">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <a href="index.html">Voltar</a>
+        </header>
+
+        <div class="page-header">
+            <img src="safetour-logo.png" alt="SafeTour Logo" class="logo">
+            <h2>Login</h2>
+        </div>
+        
+        <section id="login">
+            <form id="loginForm">
+                <div>
+                    <label for="email">Email:</label>
+                    <input type="email" id="email" required>
+                </div>
+                <div>
+                    <label for="senha">Senha:</label>
+                    <input type="password" id="senha" required>
+                </div>
+                <button type="submit">Entrar</button>
+            </form>
+            <div id="loginResult"></div>
+        </section>
+
+        <section id="auth-links">
+            <h2>Ou</h2>
+            <a href="cadastro.html" class="button-like">Cadastre-se</a>
+        </section>
+    </div>
+
+    <script>
+        const API_BASE_URL = 'http://localhost:3000/api';
+        const loginForm = document.getElementById('loginForm');
+        const loginResult = document.getElementById('loginResult');
+
+        loginForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const credentials = {
+                email: document.getElementById('email').value,
+                senha: document.getElementById('senha').value
+            };
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/auth/login`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(credentials)
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    localStorage.setItem('authToken', data.token);
+                    
+                    const userType = data.usuario.tipo;
+                    loginResult.innerHTML = `<p style="color: green;">Login realizado com sucesso! Redirecionando...</p>`;
+                    
+                    setTimeout(() => {
+                        if (userType === 'turista') {
+                            window.location.href = 'dashboard-turista.html';
+                        } else if (userType === 'agencia' || userType === 'guia') {
+                            window.location.href = 'dashboard-agencia-guia.html';
+                        } else {
+                            // Se o tipo não for reconhecido, o usuário é redirecionado para o dashboard padrão
+                            window.location.href = 'dashboard.html';
+                        }
+                    }, 1000); 
+                } else {
+                    loginResult.innerHTML = `<p style="color: red;">${data.erro}</p>`;
+                }
+            } catch (err) {
+                loginResult.innerHTML = `<p style="color: red;">Erro ao tentar fazer login: ${err.message}</p>`;
+            }
+        });
+    </script>
+</body>
+</html>

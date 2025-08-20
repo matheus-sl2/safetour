@@ -2,7 +2,7 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const apiRoutes = require('./routes/api');
-const admin = require('firebase-admin'); // dps tira essa linha
+const admin = require('firebase-admin');
 
 // Inicialização do Firebase
 if (!admin.apps.length) {

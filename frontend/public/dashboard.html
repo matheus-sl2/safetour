@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SafeTour - Dashboard</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="icon" type="image/x-icon" href="safetour.png">
+</head>
+<body>
+    <div class="container">
+        <div class="page-header">
+            <img src="safetour-logo.png" alt="SafeTour Logo" class="logo">
+            <h1>SafeTour</h1>
+        </div>
+        
+        <section>
+            <h2>Menu Principal</h2>
+            <ul>
+                <li><a href="emergencia.html" class="button-like">🔴 Acionar Botão de Emergência</a></li>
+                <li><a href="mapa.html" class="button-like">🗺️ Ver Mapa Colaborativo</a></li>
+                <li><a href="perfil.html" class="button-like">👤 Ver Perfil do Usuário</a></li>
+            </ul>
+        </section>
+
+        <section>
+            <h2>Sessão</h2>
+            <button id="logoutBtn" class="button-like">Sair</button>
+        </section>
+    </div>
+
+    <script>
+        document.getElementById('logoutBtn').addEventListener('click', () => {
+            localStorage.removeItem('authToken');
+            window.location.href = 'index.html';
+        });
+    </script>
+</body>
+</html>

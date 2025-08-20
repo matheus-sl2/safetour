@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SafeTour - Mapa</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin=""/>
+    <link rel="icon" type="image/x-icon" href="safetour.png">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <a id="back-button" href="#">Voltar</a>
+        </header>
+
+        <div class="page-header">
+            <img src="safetour-logo.png" alt="SafeTour Logo" class="logo">
+            <h2>Mapa Colaborativo</h2>
+        </div>
+
+        <section id="mapa">
+            <div class="map-buttons">
+                <button id="btnReportarRisco">🚨 Reportar Área de Risco Agora</button>
+                <button id="btnCarregarAlertas">Carregar Alertas no Mapa</button>
+            </div>
+            <div id="map"></div>
+        </section>
+    </div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+    <script src="https://unpkg.com/jwt-decode@3.1.2/build/jwt-decode.js"></script>
+    <script>
+        const API_BASE_URL = 'http://localhost:3000/api';
+        const btnReportarRisco = document.getElementById('btnReportarRisco');
+        const btnCarregarAlertas = document.getElementById('btnCarregarAlertas');
+        const mapDiv = document.getElementById('map');
+        
+        // Lógica de redirecionamento do botão Voltar
+        const token = localStorage.getItem('authToken');
+        if (token) {
+            const decodedToken = jwt_decode(token);
+            const userType = decodedToken.userType;
+            if (userType === 'turista') {
+                document.getElementById('back-button').href = 'dashboard-turista.html';
+            } else if (userType === 'agencia' || userType === 'guia') {
+                document.getElementById('back-button').href = 'dashboard-agencia-guia.html';
+            }
+        }
+        
+        let map;
+        let markers = [];
+        let emergencyIcon, riskIcon;
+
+        // Funções para ícones personalizados
+        function createIcons() {
+            emergencyIcon = L.icon({
+                iconUrl: 'https://cdn.rawgit.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-red.png',
+                iconSize: [25, 41],
+                iconAnchor: [12, 41],
+                popupAnchor: [1, -34]
+            });
+            riskIcon = L.icon({
+                iconUrl: 'https://cdn.rawgit.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-orange.png',
+                iconSize: [25, 41],
+                iconAnchor: [12, 41],
+                popupAnchor: [1, -34]
+            });
+        }
+
+        // Função para inicializar o mapa
+        function initMap() {
+            createIcons();
+            map = L.map('map').setView([-15.5, -44.3], 12);
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '© OpenStreetMap contributors'
+            }).addTo(map);
+        }
+
+        btnReportarRisco.addEventListener('click', () => {
+            if (confirm("Você quer mesmo reportar a sua localização atual como uma área de risco?")) {
+                if (navigator.geolocation) {
+                    navigator.geolocation.getCurrentPosition(position => {
+                        const localizacao = {
+                            lat: position.coords.latitude,
+                            lng: position.coords.longitude
+                        };
+                        sendRiskReport(localizacao);
+                    }, error => {
+                        alert("Não foi possível obter sua localização. Certifique-se de que a permissão de geolocalização está ativada.");
+                        console.error("Erro de geolocalização:", error);
+                    });
+                } else {
+                    alert("Seu navegador não suporta geolocalização.");
+                }
+            }
+        });
+
+        async function sendRiskReport(localizacao) {
+            const usuarioId = '1';
+            try {
+                const response = await fetch(`${API_BASE_URL}/alerta/reportar-risco`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ usuarioId, localizacao })
+                });
+                const data = await response.json();
+                alert(`Área de risco reportada! ID: ${data.alertaId}`);
+                loadAlerts(); 
+            } catch (err) {
+                console.error("Erro ao reportar área de risco:", err);
+                alert("Erro ao reportar área de risco.");
+            }
+        }
+        
+        async function loadAlerts() {
+            try {
+                const response = await fetch(`${API_BASE_URL}/alerta/alertas`);
+                const alertas = await response.json();
+
+                markers.forEach(marker => map.removeLayer(marker));
+                markers = [];
+
+                if (alertas) {
+                    Object.keys(alertas).forEach(alertaId => {
+                        const alerta = alertas[alertaId];
+                        const icon = alerta.tipo === 'risco' ? riskIcon : emergencyIcon;
+                        const marker = L.marker([alerta.localizacao.lat, alerta.localizacao.lng], { icon }).addTo(map);
+
+                        let popupContent = `<b>Alerta de ${alerta.tipo}</b><br>Usuário: ${alerta.usuarioId}`;
+                        popupContent += `<br><br><button onclick="addReaction('${alertaId}', '1')">👍 Confirmar (${Object.keys(alerta.reacoes || {}).length})</button>`;
+
+                        marker.bindPopup(popupContent);
+                        markers.push(marker);
+                    });
+                }
+            } catch (err) {
+                console.error("Erro ao carregar alertas:", err);
+            }
+        }
+
+        async function addReaction(alertaId, usuarioId) {
+            try {
+                const response = await fetch(`${API_BASE_URL}/alerta/reagir/${alertaId}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ usuarioId })
+                });
+                const data = await response.json();
+                alert(`Reação adicionada! Total: ${data.totalReacoes}`);
+                loadAlerts();
+            } catch (err) {
+                console.error("Erro ao reagir ao alerta:", err);
+            }
+        }
+
+        btnCarregarAlertas.addEventListener('click', loadAlerts);
+        window.onload = initMap;
+    </script>
+</body>
+</html>
